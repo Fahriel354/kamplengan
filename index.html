@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Game Tampar Tangan 2D - Mobile & PC</title>
+  <title>Game Tampar Tangan 2D - Landscape HP Edition</title>
   <style>
     * {
       box-sizing: border-box;
@@ -14,60 +14,83 @@
       touch-action: manipulation;
     }
     body {
-      background: #0f0f13;
+      background: #000;
       color: #fff;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
+      width: 100vw;
+      height: 100vh;
       overflow: hidden;
     }
-    #game-container {
+
+    /* Container Game Landscape */
+    #game-wrapper {
       position: relative;
       width: 100vw;
-      max-width: 800px;
-      height: 60vh;
-      max-height: 500px;
-      border: 2px solid #555;
-      border-radius: 12px;
-      box-shadow: 0 0 25px rgba(0, 0, 0, 0.8);
-      overflow: hidden;
-      background: #000;
+      height: 100vh;
+      display: flex;
+      flex-direction: row; /* Kontrol Kiri - Canvas - Kontrol Kanan */
+      align-items: center;
+      justify-content: center;
+      background: #0f0f13;
     }
+
+    #canvas-container {
+      position: relative;
+      flex: 1;
+      height: 100%;
+      max-width: 900px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     canvas {
       width: 100%;
       height: 100%;
+      max-height: 100vh;
+      object-fit: contain;
       display: block;
     }
-    
-    /* Touch Controls UI untuk HP */
-    .mobile-controls {
+
+    /* Side Touch Controls (Kiri & Kanan ala Gamepad) */
+    .side-control {
+      width: 15vw;
+      max-width: 120px;
+      height: 80%;
       display: flex;
-      justify-content: space-between;
-      width: 100vw;
-      max-width: 800px;
-      margin-top: 15px;
-      padding: 0 10px;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      z-index: 5;
     }
+
     .touch-btn {
-      flex: 1;
-      height: 70px;
-      margin: 0 8px;
+      width: 100%;
+      height: 100%;
+      max-height: 250px;
       border: none;
-      border-radius: 12px;
+      border-radius: 20px;
       font-size: 1.2rem;
       font-weight: bold;
       color: white;
       cursor: pointer;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-      active: scale(0.95);
+      box-shadow: 0 0 15px rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      writing-mode: vertical-lr; /* Teks tegak lurus biar keren di HP */
+      text-orientation: upright;
+      letter-spacing: 2px;
     }
-    #btnP1 { background: #1e3c72; border: 2px solid #4a90e2; }
-    #btnP2 { background: #870000; border: 2px solid #ff4d4d; }
+
+    #btnP1 { background: linear-gradient(135deg, #1e3c72, #2a5298); border: 3px solid #4a90e2; }
+    #btnP2 { background: linear-gradient(135deg, #870000, #ff4d4d); border: 3px solid #ff6666; }
     .touch-btn:active {
-      transform: scale(0.96);
+      transform: scale(0.95);
       opacity: 0.8;
     }
 
@@ -82,16 +105,15 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      background: rgba(10, 10, 15, 0.92);
+      background: rgba(10, 10, 15, 0.95);
       z-index: 10;
       padding: 20px;
-      text-align: center;
     }
     .ui-overlay.hidden {
       display: none;
     }
     h1 {
-      font-size: 2.2rem;
+      font-size: 2.5rem;
       margin-bottom: 15px;
       text-transform: uppercase;
       color: #ff3366;
@@ -101,44 +123,69 @@
       background: #ff3366;
       color: #fff;
       border: none;
-      padding: 12px 24px;
+      padding: 12px 28px;
       margin: 8px;
-      font-size: 1rem;
+      font-size: 1.1rem;
       font-weight: bold;
       border-radius: 8px;
       cursor: pointer;
-      width: 80%;
-      max-width: 280px;
+      width: 250px;
     }
     .controls-hint {
       margin-top: 15px;
       font-size: 0.85rem;
       color: #ccc;
-      line-height: 1.4;
+      text-align: center;
+    }
+
+    /* Warning jika HP masih posisi Potrait (Tegak) */
+    @media screen and (orientation: portrait) {
+      #game-wrapper::after {
+        content: "🔄 Miringkan HP Anda ke posisi Landscape!";
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: #000;
+        color: #ffcc00;
+        font-size: 1.3rem;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 20px;
+        z-index: 99;
+      }
     }
   </style>
 </head>
 <body>
 
-  <div id="game-container">
-    <canvas id="gameCanvas" width="800" height="500"></canvas>
+  <div id="game-wrapper">
+    <!-- Kontrol Kiri (P1) -->
+    <div class="side-control">
+      <button id="btnP1" class="touch-btn">P1</button>
+    </div>
 
-    <!-- Overlay Menu -->
-    <div id="uiOverlay" class="ui-overlay">
-      <h1 id="menuTitle">TAMPAR TANGAN 2D</h1>
-      <button class="menu-btn" onclick="startGame('vs_cpu')">1 Player (vs CPU)</button>
-      <button class="menu-btn" onclick="startGame('2p')">2 Players (1 HP Berdua)</button>
-      <div class="controls-hint">
-        <b>Kontrol HP:</b> Tekan Tombol di Bawah Layar<br>
-        <b>Kontrol PC:</b> P1 = [ W ] | P2 = [ PANAH ATAS ]
+    <!-- Area Game Canvas -->
+    <div id="canvas-container">
+      <canvas id="gameCanvas" width="800" height="450"></canvas>
+
+      <!-- Overlay Menu -->
+      <div id="uiOverlay" class="ui-overlay">
+        <h1 id="menuTitle">TAMPAR TANGAN 2D</h1>
+        <button class="menu-btn" onclick="startGame('vs_cpu')">1 Player (vs CPU)</button>
+        <button class="menu-btn" onclick="startGame('2p')">2 Players (Berdua)</button>
+        <div class="controls-hint">
+          <b>Mobile:</b> Miringkan HP, tekan tombol Kiri / Kanan<br>
+          <b>PC:</b> P1 = [ W ] | P2 = [ PANAH ATAS ]
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Tombol Sentuh / Touch Controls untuk HP -->
-  <div class="mobile-controls">
-    <button id="btnP1" class="touch-btn">P1 (KIRI)</button>
-    <button id="btnP2" class="touch-btn">P2 (KANAN)</button>
+    <!-- Kontrol Kanan (P2 / CPU) -->
+    <div class="side-control">
+      <button id="btnP2" class="touch-btn">P2</button>
+    </div>
   </div>
 
   <script>
@@ -147,7 +194,7 @@
     const uiOverlay = document.getElementById('uiOverlay');
     const menuTitle = document.getElementById('menuTitle');
 
-    // Web Audio Engine (Compatible HP & Desktop)
+    // Web Audio Engine
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx;
 
@@ -219,6 +266,12 @@
 
     function startGame(mode) {
       initAudio();
+      
+      // Request Fullscreen saat main di HP
+      if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+
       gameMode = mode;
       scoreP1 = 0;
       scoreP2 = 0;
@@ -232,7 +285,7 @@
       p2Redness = 0;
       gameActive = true;
 
-      document.getElementById('btnP2').style.display = (gameMode === 'vs_cpu') ? 'none' : 'block';
+      document.getElementById('btnP2').style.visibility = (gameMode === 'vs_cpu') ? 'hidden' : 'visible';
 
       uiOverlay.classList.add('hidden');
 
@@ -256,7 +309,7 @@
       uiOverlay.classList.remove('hidden');
     }
 
-    // Input Handlers (Support Touch HP & Keyboard PC)
+    // Handlers Input
     function handleP1Input(e) {
       if (e) e.preventDefault();
       if (gameActive && !isActionInProgress) triggerAction('p1');
@@ -267,7 +320,6 @@
       if (gameActive && !isActionInProgress && gameMode === '2p') triggerAction('p2');
     }
 
-    // Touch events
     const btnP1 = document.getElementById('btnP1');
     const btnP2 = document.getElementById('btnP2');
 
@@ -277,7 +329,6 @@
     btnP2.addEventListener('touchstart', handleP2Input);
     btnP2.addEventListener('mousedown', handleP2Input);
 
-    // Keyboard events
     window.addEventListener('keydown', (e) => {
       if (!gameActive || isActionInProgress) return;
       if (e.key.toLowerCase() === 'w') handleP1Input();
@@ -292,7 +343,7 @@
         if (attacker === 'p1') p1State = 'slapping';
         else p2State = 'slapping';
 
-        // AI Refleks
+        // CPU Logic
         if (gameMode === 'vs_cpu' && attacker === 'p1' && p2State === 'idle') {
           let dodgeChance = Math.min(0.3 + (level * 0.12), 0.85);
           if (Math.random() < dodgeChance) {
@@ -323,7 +374,6 @@
           p2State = 'idle';
           isActionInProgress = false;
 
-          // CPU Attack Logic
           if (gameActive && gameMode === 'vs_cpu' && attacker === 'p2') {
             let cpuAttackDelay = Math.max(550 - (level * 55), 180);
             setTimeout(() => {
@@ -335,7 +385,6 @@
         }, 180);
 
       } else {
-        // Dodging Action
         if (player === 'p1' && p1State === 'idle') {
           p1State = 'dodging';
           playSound('dodge');
@@ -388,27 +437,27 @@
     }
 
     function renderBackground() {
-      let gradLeft = ctx.createLinearGradient(0, 0, 400, 500);
+      let gradLeft = ctx.createLinearGradient(0, 0, 400, 450);
       gradLeft.addColorStop(0, '#1a2a6c');
       gradLeft.addColorStop(1, '#270000');
 
-      let gradRight = ctx.createLinearGradient(400, 0, 800, 500);
+      let gradRight = ctx.createLinearGradient(400, 0, 800, 450);
       gradRight.addColorStop(0, '#b21f1f');
       gradRight.addColorStop(1, '#1a0000');
 
       ctx.fillStyle = gradLeft;
-      ctx.fillRect(0, 0, 400, 500);
+      ctx.fillRect(0, 0, 400, 450);
 
       ctx.fillStyle = gradRight;
-      ctx.fillRect(400, 0, 400, 500);
+      ctx.fillRect(400, 0, 400, 450);
 
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(400, 0);
-      ctx.lineTo(392, 180);
-      ctx.lineTo(408, 320);
-      ctx.lineTo(400, 500);
+      ctx.lineTo(392, 160);
+      ctx.lineTo(408, 290);
+      ctx.lineTo(400, 450);
       ctx.stroke();
 
       ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
@@ -450,10 +499,10 @@
 
       if (gameActive) {
         let p1X = p1State === 'slapping' ? 330 : (p1State === 'dodging' ? 210 : 260);
-        drawHand(p1X, 280, true, p1State, p1Redness);
+        drawHand(p1X, 250, true, p1State, p1Redness);
 
         let p2X = p2State === 'slapping' ? 470 : (p2State === 'dodging' ? 590 : 540);
-        drawHand(p2X, 280, false, p2State, p2Redness);
+        drawHand(p2X, 250, false, p2State, p2Redness);
       }
 
       renderUI();
