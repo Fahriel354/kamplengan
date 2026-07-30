@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Game Tampar Tangan 2D - HD Landscape</title>
+  <title>Game Tampar Tangan 2D - Dual Button Edition</title>
   <style>
     * {
       box-sizing: border-box;
@@ -25,7 +25,6 @@
       overflow: hidden;
     }
 
-    /* Container Game Landscape */
     #game-wrapper {
       position: relative;
       width: 100vw;
@@ -41,7 +40,7 @@
       position: relative;
       flex: 1;
       height: 100%;
-      max-width: 900px;
+      max-width: 850px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -55,42 +54,48 @@
       display: block;
     }
 
-    /* Side Touch Controls */
+    /* Side Control Area dengan 2 Tombol */
     .side-control {
-      width: 15vw;
-      max-width: 120px;
-      height: 80%;
+      width: 18vw;
+      max-width: 140px;
+      height: 90%;
       display: flex;
+      flex-direction: column;
+      gap: 12px;
       align-items: center;
       justify-content: center;
       padding: 10px;
       z-index: 5;
     }
 
-    .touch-btn {
+    .btn-action {
       width: 100%;
-      height: 100%;
-      max-height: 250px;
+      flex: 1;
+      max-height: 180px;
       border: none;
-      border-radius: 20px;
-      font-size: 1.2rem;
+      border-radius: 16px;
+      font-size: 1.1rem;
       font-weight: bold;
       color: white;
       cursor: pointer;
-      box-shadow: 0 0 15px rgba(0,0,0,0.6);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
       display: flex;
       align-items: center;
       justify-content: center;
       text-align: center;
-      writing-mode: vertical-lr;
-      text-orientation: upright;
-      letter-spacing: 2px;
+      letter-spacing: 1px;
     }
 
-    #btnP1 { background: linear-gradient(135deg, #1e3c72, #2a5298); border: 3px solid #4a90e2; }
-    #btnP2 { background: linear-gradient(135deg, #870000, #ff4d4d); border: 3px solid #ff6666; }
-    .touch-btn:active {
-      transform: scale(0.95);
+    /* Tombol P1 (Kiri) */
+    .btn-slap-p1 { background: linear-gradient(135deg, #e53935, #b71c1c); border: 2.5 solid #ff6666; }
+    .btn-dodge-p1 { background: linear-gradient(135deg, #1e88e5, #1565c0); border: 2.5px solid #64b5f6; }
+
+    /* Tombol P2 (Kanan) */
+    .btn-slap-p2 { background: linear-gradient(135deg, #d81b60, #880e4f); border: 2.5px solid #ff4081; }
+    .btn-dodge-p2 { background: linear-gradient(135deg, #00897b, #004d40); border: 2.5px solid #26a69a; }
+
+    .btn-action:active {
+      transform: scale(0.92);
       opacity: 0.8;
     }
 
@@ -113,7 +118,7 @@
       display: none;
     }
     h1 {
-      font-size: 2.5rem;
+      font-size: 2.4rem;
       margin-bottom: 15px;
       text-transform: uppercase;
       color: #ff3366;
@@ -136,6 +141,7 @@
       font-size: 0.85rem;
       color: #ccc;
       text-align: center;
+      line-height: 1.4;
     }
 
     @media screen and (orientation: portrait) {
@@ -160,8 +166,10 @@
 <body>
 
   <div id="game-wrapper">
+    <!-- Kontrol Kiri (P1): 2 Tombol Terpisah -->
     <div class="side-control">
-      <button id="btnP1" class="touch-btn">P1</button>
+      <button id="btnSlapP1" class="btn-action btn-slap-p1">✋<br>TAMPAR<br><small>(W)</small></button>
+      <button id="btnDodgeP1" class="btn-action btn-dodge-p1">🛡️<br>HINDAR<br><small>(S)</small></button>
     </div>
 
     <div id="canvas-container">
@@ -172,14 +180,16 @@
         <button class="menu-btn" onclick="startGame('vs_cpu')">1 Player (vs CPU)</button>
         <button class="menu-btn" onclick="startGame('2p')">2 Players (Berdua)</button>
         <div class="controls-hint">
-          <b>Mobile:</b> Miringkan HP, tekan tombol Kiri / Kanan<br>
-          <b>PC:</b> P1 = [ W ] | P2 = [ PANAH ATAS ]
+          <b>Pemain 1 (Kiri):</b> [W] Tampar | [S] Hindar<br>
+          <b>Pemain 2 (Kanan):</b> [PANAH ATAS] Tampar | [PANAH BAWAH] Hindar
         </div>
       </div>
     </div>
 
-    <div class="side-control">
-      <button id="btnP2" class="touch-btn">P2</button>
+    <!-- Kontrol Kanan (P2): 2 Tombol Terpisah -->
+    <div id="p2ControlGroup" class="side-control">
+      <button id="btnSlapP2" class="btn-action btn-slap-p2">✋<br>TAMPAR<br><small>(▲)</small></button>
+      <button id="btnDodgeP2" class="btn-action btn-dodge-p2">🛡️<br>HINDAR<br><small>(▼)</small></button>
     </div>
   </div>
 
@@ -280,7 +290,7 @@
       hitEffects = [];
       gameActive = true;
 
-      document.getElementById('btnP2').style.visibility = (gameMode === 'vs_cpu') ? 'hidden' : 'visible';
+      document.getElementById('p2ControlGroup').style.visibility = (gameMode === 'vs_cpu') ? 'hidden' : 'visible';
 
       uiOverlay.classList.add('hidden');
 
@@ -304,43 +314,23 @@
       uiOverlay.classList.remove('hidden');
     }
 
-    function handleP1Input(e) {
-      if (e) e.preventDefault();
-      if (gameActive && !isActionInProgress) triggerAction('p1');
-    }
-
-    function handleP2Input(e) {
-      if (e) e.preventDefault();
-      if (gameActive && !isActionInProgress && gameMode === '2p') triggerAction('p2');
-    }
-
-    const btnP1 = document.getElementById('btnP1');
-    const btnP2 = document.getElementById('btnP2');
-
-    btnP1.addEventListener('touchstart', handleP1Input);
-    btnP1.addEventListener('mousedown', handleP1Input);
-
-    btnP2.addEventListener('touchstart', handleP2Input);
-    btnP2.addEventListener('mousedown', handleP2Input);
-
-    window.addEventListener('keydown', (e) => {
-      if (!gameActive || isActionInProgress) return;
-      if (e.key.toLowerCase() === 'w') handleP1Input();
-      if (e.key === 'ArrowUp') handleP2Input();
-    });
-
     function createHitEffect(x, y) {
       hitEffects.push({ x, y, radius: 10, alpha: 1.0 });
     }
 
-    function triggerAction(player) {
-      if (isActionInProgress) return;
+    // Eksekusi Logika Berdasarkan Tombol Yang Ditekan
+    function handleAction(player, actionType) {
+      if (!gameActive || isActionInProgress) return;
 
-      if (player === attacker) {
+      if (actionType === 'slap') {
+        // Pemain menekan TAMPAR
+        if (player !== attacker) return; // Mengabaikan jika salah giliran (bukan attacker)
+
         isActionInProgress = true;
         if (attacker === 'p1') p1State = 'slapping';
         else p2State = 'slapping';
 
+        // AI Refleks
         if (gameMode === 'vs_cpu' && attacker === 'p1' && p2State === 'idle') {
           let dodgeChance = Math.min(0.3 + (level * 0.12), 0.85);
           if (Math.random() < dodgeChance) {
@@ -354,7 +344,7 @@
           let defenderState = defender === 'p1' ? p1State : p2State;
 
           if (defenderState === 'dodging') {
-            attacker = defender;
+            attacker = defender; // Defender berhasil menghindar! Tukar giliran
           } else {
             playSound('slap');
             if (attacker === 'p1') {
@@ -373,17 +363,21 @@
           p2State = 'idle';
           isActionInProgress = false;
 
+          // AI Turn Attack
           if (gameActive && gameMode === 'vs_cpu' && attacker === 'p2') {
             let cpuAttackDelay = Math.max(550 - (level * 55), 180);
             setTimeout(() => {
               if (gameActive && attacker === 'p2' && !isActionInProgress) {
-                triggerAction('p2');
+                handleAction('p2', 'slap');
               }
             }, cpuAttackDelay);
           }
         }, 180);
 
-      } else {
+      } else if (actionType === 'dodge') {
+        // Pemain menekan HINDAR
+        if (player === attacker) return; // Menghindar hanya bisa dilakukan oleh defender
+
         if (player === 'p1' && p1State === 'idle') {
           p1State = 'dodging';
           playSound('dodge');
@@ -396,7 +390,30 @@
       }
     }
 
-    // FUNCTION GAMBAR TANGAN REALISTIS / ANIMASI DETAIL
+    // Touch Event Binding untuk HP
+    const bindBtn = (id, player, action) => {
+      const el = document.getElementById(id);
+      const handler = (e) => { e.preventDefault(); handleAction(player, action); };
+      el.addEventListener('touchstart', handler);
+      el.addEventListener('mousedown', handler);
+    };
+
+    bindBtn('btnSlapP1', 'p1', 'slap');
+    bindBtn('btnDodgeP1', 'p1', 'dodge');
+    bindBtn('btnSlapP2', 'p2', 'slap');
+    bindBtn('btnDodgeP2', 'p2', 'dodge');
+
+    // Keyboard Event Binding untuk PC
+    window.addEventListener('keydown', (e) => {
+      if (!gameActive || isActionInProgress) return;
+      const key = e.key.toLowerCase();
+      if (key === 'w') handleAction('p1', 'slap');
+      if (key === 's') handleAction('p1', 'dodge');
+      if (e.key === 'ArrowUp' && gameMode === '2p') handleAction('p2', 'slap');
+      if (e.key === 'ArrowDown' && gameMode === '2p') handleAction('p2', 'dodge');
+    });
+
+    // Drawing Visuals
     function drawDetailedHand(x, y, isLeft, state, redness) {
       ctx.save();
       ctx.translate(x, y);
@@ -409,7 +426,6 @@
       if (state === 'dodging') rotation = -0.5;
       ctx.rotate(rotation);
 
-      // Gradient Warna Kulit & Efek Kemerahan Tamparan
       let r = Math.min(255, 235 + Math.floor(redness * 20));
       let g = Math.max(70, 175 - Math.floor(redness * 125));
       let b = Math.max(70, 140 - Math.floor(redness * 100));
@@ -424,7 +440,6 @@
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
-      // Lengan
       ctx.beginPath();
       ctx.moveTo(-35, 180);
       ctx.lineTo(-28, 60);
@@ -433,17 +448,15 @@
       ctx.fill();
       ctx.stroke();
 
-      // Telapak Tangan
       ctx.beginPath();
       ctx.moveTo(-28, 60);
-      ctx.bezierCurveTo(-45, 20, -42, -20, -25, -40); // Sisi luar jempol
+      ctx.bezierCurveTo(-45, 20, -42, -20, -25, -40);
       ctx.bezierCurveTo(0, -50, 25, -50, 38, -30);
       ctx.bezierCurveTo(45, 0, 42, 40, 32, 60);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
 
-      // Detail Lipatan Telapak Tangan (Garis-Garis Tangan)
       ctx.strokeStyle = `rgba(100, 30, 20, ${0.3 + redness * 0.3})`;
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -453,17 +466,16 @@
       ctx.quadraticCurveTo(0, 30, 20, 25);
       ctx.stroke();
 
-      // Struktur 5 Jari (Ibu jari sampai Kelingking)
       ctx.strokeStyle = '#1d1310';
       ctx.lineWidth = 3.5;
       ctx.fillStyle = skinGrad;
 
       let fingers = [
-        { x: -34, y: -15, w: 16, h: 50, rot: -0.6, nail: true },  // Ibu Jari
-        { x: -22, y: -40, w: 15, h: 75, rot: -0.15, nail: false }, // Telunjuk
-        { x: -5,  y: -48, w: 16, h: 82, rot: 0,     nail: false }, // Jari Tengah
-        { x: 12,  y: -44, w: 15, h: 74, rot: 0.12,  nail: false }, // Jari Manis
-        { x: 28,  y: -32, w: 13, h: 60, rot: 0.28,  nail: false }  // Kelingking
+        { x: -34, y: -15, w: 16, h: 50, rot: -0.6 },
+        { x: -22, y: -40, w: 15, h: 75, rot: -0.15 },
+        { x: -5,  y: -48, w: 16, h: 82, rot: 0 },
+        { x: 12,  y: -44, w: 15, h: 74, rot: 0.12 },
+        { x: 28,  y: -32, w: 13, h: 60, rot: 0.28 }
       ];
 
       fingers.forEach(f => {
@@ -471,13 +483,11 @@
         ctx.translate(f.x, f.y);
         ctx.rotate(f.rot);
 
-        // Jari
         ctx.beginPath();
         ctx.roundRect(-f.w / 2, -f.h, f.w, f.h, f.w / 2);
         ctx.fill();
         ctx.stroke();
 
-        // Ruas-ruas Jari
         ctx.strokeStyle = `rgba(80, 20, 10, 0.25)`;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
@@ -490,7 +500,6 @@
         ctx.restore();
       });
 
-      // Efek Merah Memar di Tengah Telapak Tangan jika sering kena
       if (redness > 0) {
         let spotGrad = ctx.createRadialGradient(0, 0, 5, 0, 0, 35);
         spotGrad.addColorStop(0, `rgba(255, 0, 0, ${redness * 0.85})`);
@@ -519,7 +528,6 @@
       ctx.fillStyle = gradRight;
       ctx.fillRect(400, 0, 400, 450);
 
-      // Garis Pemisah Petir Glowing
       ctx.shadowColor = '#ffffff';
       ctx.shadowBlur = 10;
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
@@ -530,9 +538,8 @@
       ctx.lineTo(408, 290);
       ctx.lineTo(400, 450);
       ctx.stroke();
-      ctx.shadowBlur = 0; // Reset shadow
+      ctx.shadowBlur = 0;
 
-      // Particles Background
       ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
       particles.forEach(p => {
         p.y -= p.speed;
@@ -544,7 +551,6 @@
     }
 
     function renderEffects() {
-      // Animation Effect Tamparan
       for (let i = hitEffects.length - 1; i >= 0; i--) {
         let fx = hitEffects[i];
         ctx.save();
@@ -557,9 +563,7 @@
         fx.radius += 4;
         fx.alpha -= 0.08;
 
-        if (fx.alpha <= 0) {
-          hitEffects.splice(i, 1);
-        }
+        if (fx.alpha <= 0) hitEffects.splice(i, 1);
         ctx.restore();
       }
     }
@@ -569,12 +573,12 @@
       ctx.font = 'bold 18px sans-serif';
 
       ctx.textAlign = 'left';
-      ctx.fillText(`P1 (${attacker === 'p1' ? 'TAMPAR' : 'HINDAR'})`, 25, 35);
+      ctx.fillText(`P1 (${attacker === 'p1' ? 'PENYERING' : 'DEFENDER'})`, 25, 35);
       ctx.fillText(`Poin: ${scoreP1}`, 25, 62);
 
       ctx.textAlign = 'right';
       let p2Name = gameMode === 'vs_cpu' ? 'CPU' : 'P2';
-      ctx.fillText(`${p2Name} (${attacker === 'p2' ? 'TAMPAR' : 'HINDAR'})`, 775, 35);
+      ctx.fillText(`${p2Name} (${attacker === 'p2' ? 'PENYERING' : 'DEFENDER'})`, 775, 35);
       ctx.fillText(`Poin: ${scoreP2}`, 775, 62);
 
       ctx.textAlign = 'center';
@@ -592,11 +596,9 @@
       renderBackground();
 
       if (gameActive) {
-        // Render Tangan P1
         let p1X = p1State === 'slapping' ? 330 : (p1State === 'dodging' ? 200 : 250);
         drawDetailedHand(p1X, 260, true, p1State, p1Redness);
 
-        // Render Tangan P2
         let p2X = p2State === 'slapping' ? 470 : (p2State === 'dodging' ? 600 : 550);
         drawDetailedHand(p2X, 260, false, p2State, p2Redness);
 
