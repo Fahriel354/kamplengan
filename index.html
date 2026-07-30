@@ -84,10 +84,12 @@
       justify-content: center;
       text-align: center;
       letter-spacing: 1px;
+      transition: opacity 0.15s ease, filter 0.15s ease, transform 0.1s ease;
+      position: relative;
     }
 
     /* Tombol P1 (Kiri) */
-    .btn-slap-p1 { background: linear-gradient(135deg, #e53935, #b71c1c); border: 2.5 solid #ff6666; }
+    .btn-slap-p1 { background: linear-gradient(135deg, #e53935, #b71c1c); border: 2.5px solid #ff6666; }
     .btn-dodge-p1 { background: linear-gradient(135deg, #1e88e5, #1565c0); border: 2.5px solid #64b5f6; }
 
     /* Tombol P2 (Kanan) */
@@ -97,6 +99,33 @@
     .btn-action:active {
       transform: scale(0.92);
       opacity: 0.8;
+    }
+
+    /* Tombol nonaktif saat bukan giliran perannya (attacker/defender) */
+    .btn-action.disabled {
+      opacity: 0.3;
+      filter: grayscale(70%);
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    .btn-action.disabled:active {
+      transform: none;
+    }
+
+    /* Badge kecil penanda peran aktif di atas tombol */
+    .btn-action.active-role::after {
+      content: "●";
+      position: absolute;
+      top: 6px;
+      right: 10px;
+      color: #ffee58;
+      font-size: 1.2rem;
+      text-shadow: 0 0 6px #ffee58;
+      animation: pulse-role 1s infinite;
+    }
+    @keyframes pulse-role {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
     }
 
     /* UI Overlay Menu */
@@ -181,7 +210,9 @@
         <button class="menu-btn" onclick="startGame('2p')">2 Players (Berdua)</button>
         <div class="controls-hint">
           <b>Pemain 1 (Kiri):</b> [W] Tampar | [S] Hindar<br>
-          <b>Pemain 2 (Kanan):</b> [PANAH ATAS] Tampar | [PANAH BAWAH] Hindar
+          <b>Pemain 2 (Kanan):</b> [PANAH ATAS] Tampar | [PANAH BAWAH] Hindar<br><br>
+          ⚠️ Tombol yang meredup berarti bukan giliranmu untuk aksi itu.<br>
+          Titik kuning berkedip = tombol yang sedang bisa kamu pakai.
         </div>
       </div>
     </div>
@@ -198,6 +229,11 @@
     const ctx = canvas.getContext('2d');
     const uiOverlay = document.getElementById('uiOverlay');
     const menuTitle = document.getElementById('menuTitle');
+
+    const btnSlapP1 = document.getElementById('btnSlapP1');
+    const btnDodgeP1 = document.getElementById('btnDodgeP1');
+    const btnSlapP2 = document.getElementById('btnSlapP2');
+    const btnDodgeP2 = document.getElementById('btnDodgeP2');
 
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx;
@@ -270,6 +306,25 @@
       speed: Math.random() * 0.6 + 0.2
     }));
 
+    // Perbarui tampilan tombol (aktif/nonaktif) sesuai peran & giliran saat ini
+    function updateButtonStates() {
+      const p1IsAttacker = attacker === 'p1';
+      const p2IsAttacker = attacker === 'p2';
+      const locked = !gameActive || isActionInProgress;
+
+      // P1
+      btnSlapP1.classList.toggle('disabled', locked || !p1IsAttacker);
+      btnDodgeP1.classList.toggle('disabled', locked || p1IsAttacker);
+      btnSlapP1.classList.toggle('active-role', !locked && p1IsAttacker);
+      btnDodgeP1.classList.toggle('active-role', !locked && !p1IsAttacker);
+
+      // P2
+      btnSlapP2.classList.toggle('disabled', locked || !p2IsAttacker);
+      btnDodgeP2.classList.toggle('disabled', locked || p2IsAttacker);
+      btnSlapP2.classList.toggle('active-role', !locked && p2IsAttacker);
+      btnDodgeP2.classList.toggle('active-role', !locked && !p2IsAttacker);
+    }
+
     function startGame(mode) {
       initAudio();
       if (document.documentElement.requestFullscreen) {
@@ -294,6 +349,8 @@
 
       uiOverlay.classList.add('hidden');
 
+      updateButtonStates();
+
       clearInterval(timerInterval);
       timerInterval = setInterval(() => {
         if (timeLeft > 0) {
@@ -312,6 +369,7 @@
       let winner = scoreP1 > scoreP2 ? "PEMAIN 1 MENANG!" : (scoreP2 > scoreP1 ? (gameMode === 'vs_cpu' ? "CPU MENANG!" : "PEMAIN 2 MENANG!") : "SERI!");
       menuTitle.innerText = winner;
       uiOverlay.classList.remove('hidden');
+      updateButtonStates();
     }
 
     function createHitEffect(x, y) {
@@ -327,6 +385,7 @@
         if (player !== attacker) return; // Mengabaikan jika salah giliran (bukan attacker)
 
         isActionInProgress = true;
+        updateButtonStates();
         if (attacker === 'p1') p1State = 'slapping';
         else p2State = 'slapping';
 
@@ -362,6 +421,7 @@
           p1State = 'idle';
           p2State = 'idle';
           isActionInProgress = false;
+          updateButtonStates();
 
           // AI Turn Attack
           if (gameActive && gameMode === 'vs_cpu' && attacker === 'p2') {
@@ -573,12 +633,12 @@
       ctx.font = 'bold 18px sans-serif';
 
       ctx.textAlign = 'left';
-      ctx.fillText(`P1 (${attacker === 'p1' ? 'PENYERING' : 'DEFENDER'})`, 25, 35);
+      ctx.fillText(`P1 (${attacker === 'p1' ? 'PENYERANG' : 'DEFENDER'})`, 25, 35);
       ctx.fillText(`Poin: ${scoreP1}`, 25, 62);
 
       ctx.textAlign = 'right';
       let p2Name = gameMode === 'vs_cpu' ? 'CPU' : 'P2';
-      ctx.fillText(`${p2Name} (${attacker === 'p2' ? 'PENYERING' : 'DEFENDER'})`, 775, 35);
+      ctx.fillText(`${p2Name} (${attacker === 'p2' ? 'PENYERANG' : 'DEFENDER'})`, 775, 35);
       ctx.fillText(`Poin: ${scoreP2}`, 775, 62);
 
       ctx.textAlign = 'center';
@@ -609,6 +669,7 @@
       requestAnimationFrame(gameLoop);
     }
 
+    updateButtonStates();
     gameLoop();
   </script>
 </body>
