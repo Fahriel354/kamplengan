@@ -2,14 +2,16 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Game Tampar Tangan 2D - GitHub Edition</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Game Tampar Tangan 2D - Mobile & PC</title>
   <style>
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
       user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
     }
     body {
       background: #0f0f13;
@@ -24,18 +26,52 @@
     }
     #game-container {
       position: relative;
-      width: 800px;
-      height: 500px;
-      border: 4px solid #fff;
+      width: 100vw;
+      max-width: 800px;
+      height: 60vh;
+      max-height: 500px;
+      border: 2px solid #555;
       border-radius: 12px;
       box-shadow: 0 0 25px rgba(0, 0, 0, 0.8);
       overflow: hidden;
+      background: #000;
     }
     canvas {
       width: 100%;
       height: 100%;
       display: block;
     }
+    
+    /* Touch Controls UI untuk HP */
+    .mobile-controls {
+      display: flex;
+      justify-content: space-between;
+      width: 100vw;
+      max-width: 800px;
+      margin-top: 15px;
+      padding: 0 10px;
+    }
+    .touch-btn {
+      flex: 1;
+      height: 70px;
+      margin: 0 8px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      active: scale(0.95);
+    }
+    #btnP1 { background: #1e3c72; border: 2px solid #4a90e2; }
+    #btnP2 { background: #870000; border: 2px solid #ff4d4d; }
+    .touch-btn:active {
+      transform: scale(0.96);
+      opacity: 0.8;
+    }
+
+    /* UI Overlay Menu */
     .ui-overlay {
       position: absolute;
       top: 0;
@@ -46,48 +82,39 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      background: rgba(10, 10, 15, 0.9);
+      background: rgba(10, 10, 15, 0.92);
       z-index: 10;
+      padding: 20px;
+      text-align: center;
     }
     .ui-overlay.hidden {
       display: none;
     }
     h1 {
-      font-size: 2.8rem;
-      margin-bottom: 20px;
+      font-size: 2.2rem;
+      margin-bottom: 15px;
       text-transform: uppercase;
-      letter-spacing: 2px;
       color: #ff3366;
       text-shadow: 0 0 12px rgba(255, 51, 102, 0.6);
-      text-align: center;
     }
-    .btn {
+    .menu-btn {
       background: #ff3366;
       color: #fff;
       border: none;
-      padding: 14px 28px;
-      margin: 10px;
-      font-size: 1.1rem;
+      padding: 12px 24px;
+      margin: 8px;
+      font-size: 1rem;
       font-weight: bold;
       border-radius: 8px;
       cursor: pointer;
-      transition: all 0.2s ease;
-      box-shadow: 0 4px 10px rgba(255, 51, 102, 0.4);
-    }
-    .btn:hover {
-      background: #ff5588;
-      transform: translateY(-2px);
-      box-shadow: 0 6px 15px rgba(255, 51, 102, 0.6);
+      width: 80%;
+      max-width: 280px;
     }
     .controls-hint {
-      margin-top: 25px;
-      font-size: 0.95rem;
+      margin-top: 15px;
+      font-size: 0.85rem;
       color: #ccc;
-      text-align: center;
-      line-height: 1.6;
-      background: rgba(255, 255, 255, 0.05);
-      padding: 12px 20px;
-      border-radius: 8px;
+      line-height: 1.4;
     }
   </style>
 </head>
@@ -96,18 +123,22 @@
   <div id="game-container">
     <canvas id="gameCanvas" width="800" height="500"></canvas>
 
-    <!-- UI Overlay Menu -->
+    <!-- Overlay Menu -->
     <div id="uiOverlay" class="ui-overlay">
       <h1 id="menuTitle">TAMPAR TANGAN 2D</h1>
-      <div id="menuButtons">
-        <button class="btn" onclick="startGame('vs_cpu')">1 Player (vs Computer)</button>
-        <button class="btn" onclick="startGame('2p')">2 Players (Lokal)</button>
-      </div>
-      <div class="controls-hint" id="controlsHint">
-        <b>Pemain 1 (Kiri):</b> Tekan <b>[ W ]</b> (Menampar / Menghindar)<br>
-        <b>Pemain 2 / CPU (Kanan):</b> Tekan <b>[ PANAH ATAS ]</b> (Menampar / Menghindar)
+      <button class="menu-btn" onclick="startGame('vs_cpu')">1 Player (vs CPU)</button>
+      <button class="menu-btn" onclick="startGame('2p')">2 Players (1 HP Berdua)</button>
+      <div class="controls-hint">
+        <b>Kontrol HP:</b> Tekan Tombol di Bawah Layar<br>
+        <b>Kontrol PC:</b> P1 = [ W ] | P2 = [ PANAH ATAS ]
       </div>
     </div>
+  </div>
+
+  <!-- Tombol Sentuh / Touch Controls untuk HP -->
+  <div class="mobile-controls">
+    <button id="btnP1" class="touch-btn">P1 (KIRI)</button>
+    <button id="btnP2" class="touch-btn">P2 (KANAN)</button>
   </div>
 
   <script>
@@ -116,14 +147,17 @@
     const uiOverlay = document.getElementById('uiOverlay');
     const menuTitle = document.getElementById('menuTitle');
 
-    // Web Audio Engine
+    // Web Audio Engine (Compatible HP & Desktop)
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx;
 
-    function playSound(type) {
+    function initAudio() {
       if (!audioCtx) audioCtx = new AudioContext();
       if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
 
+    function playSound(type) {
+      if (!audioCtx) return;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.connect(gain);
@@ -168,17 +202,15 @@
     let timerInterval = null;
     let gameActive = false;
 
-    let attacker = 'p1'; // 'p1' atau 'p2'
+    let attacker = 'p1';
     let isActionInProgress = false;
 
-    // Animation Variables
-    let p1State = 'idle'; // 'idle', 'slapping', 'dodging'
+    let p1State = 'idle'; 
     let p2State = 'idle'; 
     let p1Redness = 0;
     let p2Redness = 0;
 
-    // Background Particle Visuals
-    const particles = Array.from({ length: 30 }, () => ({
+    const particles = Array.from({ length: 20 }, () => ({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
       radius: Math.random() * 2.5 + 1,
@@ -186,6 +218,7 @@
     }));
 
     function startGame(mode) {
+      initAudio();
       gameMode = mode;
       scoreP1 = 0;
       scoreP2 = 0;
@@ -198,6 +231,8 @@
       p1Redness = 0;
       p2Redness = 0;
       gameActive = true;
+
+      document.getElementById('btnP2').style.display = (gameMode === 'vs_cpu') ? 'none' : 'block';
 
       uiOverlay.classList.add('hidden');
 
@@ -221,29 +256,45 @@
       uiOverlay.classList.remove('hidden');
     }
 
-    // Input Handling
+    // Input Handlers (Support Touch HP & Keyboard PC)
+    function handleP1Input(e) {
+      if (e) e.preventDefault();
+      if (gameActive && !isActionInProgress) triggerAction('p1');
+    }
+
+    function handleP2Input(e) {
+      if (e) e.preventDefault();
+      if (gameActive && !isActionInProgress && gameMode === '2p') triggerAction('p2');
+    }
+
+    // Touch events
+    const btnP1 = document.getElementById('btnP1');
+    const btnP2 = document.getElementById('btnP2');
+
+    btnP1.addEventListener('touchstart', handleP1Input);
+    btnP1.addEventListener('mousedown', handleP1Input);
+
+    btnP2.addEventListener('touchstart', handleP2Input);
+    btnP2.addEventListener('mousedown', handleP2Input);
+
+    // Keyboard events
     window.addEventListener('keydown', (e) => {
       if (!gameActive || isActionInProgress) return;
-
-      if (e.key.toLowerCase() === 'w') {
-        triggerAction('p1');
-      } else if (e.key === 'ArrowUp' && gameMode === '2p') {
-        triggerAction('p2');
-      }
+      if (e.key.toLowerCase() === 'w') handleP1Input();
+      if (e.key === 'ArrowUp') handleP2Input();
     });
 
     function triggerAction(player) {
       if (isActionInProgress) return;
 
       if (player === attacker) {
-        // Eksekusi Serangan
         isActionInProgress = true;
         if (attacker === 'p1') p1State = 'slapping';
         else p2State = 'slapping';
 
-        // Jika CPU adalah defender, CPU mencoba refleks menghindar
+        // AI Refleks
         if (gameMode === 'vs_cpu' && attacker === 'p1' && p2State === 'idle') {
-          let dodgeChance = Math.min(0.35 + (level * 0.12), 0.85);
+          let dodgeChance = Math.min(0.3 + (level * 0.12), 0.85);
           if (Math.random() < dodgeChance) {
             p2State = 'dodging';
             playSound('dodge');
@@ -255,10 +306,8 @@
           let defenderState = defender === 'p1' ? p1State : p2State;
 
           if (defenderState === 'dodging') {
-            // Menghindar Sukses -> Tukar Peran Penyerang
             attacker = defender;
           } else {
-            // Tamparan Kena Target
             playSound('slap');
             if (attacker === 'p1') {
               scoreP1++;
@@ -270,14 +319,13 @@
             }
           }
 
-          // Reset Posisi
           p1State = 'idle';
           p2State = 'idle';
           isActionInProgress = false;
 
-          // AI CPU Turn Attack Logic
+          // CPU Attack Logic
           if (gameActive && gameMode === 'vs_cpu' && attacker === 'p2') {
-            let cpuAttackDelay = Math.max(600 - (level * 60), 180);
+            let cpuAttackDelay = Math.max(550 - (level * 55), 180);
             setTimeout(() => {
               if (gameActive && attacker === 'p2' && !isActionInProgress) {
                 triggerAction('p2');
@@ -287,7 +335,7 @@
         }, 180);
 
       } else {
-        // Aksi Menghindar Bertahan
+        // Dodging Action
         if (player === 'p1' && p1State === 'idle') {
           p1State = 'dodging';
           playSound('dodge');
@@ -300,7 +348,7 @@
       }
     }
 
-    // Drawing Functions
+    // Drawing Visuals
     function drawHand(x, y, isLeft, state, redness) {
       ctx.save();
       ctx.translate(x, y);
@@ -315,19 +363,16 @@
       }
       ctx.rotate(rotation);
 
-      // Warna Kulit Dinamis (Makin merah jika sering terkena tamparan)
       let redVal = Math.floor(redness * 160);
       ctx.fillStyle = `rgb(240, ${185 - redVal}, ${150 - redVal})`;
       ctx.strokeStyle = '#1b1b1b';
       ctx.lineWidth = 4;
 
-      // Telapak Tangan
       ctx.beginPath();
       ctx.arc(0, 0, 42, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
-      // Jari-jari
       for (let i = -2; i <= 2; i++) {
         let angle = i * 0.26;
         let len = 58 + (i === 0 ? 12 : 0);
@@ -357,7 +402,6 @@
       ctx.fillStyle = gradRight;
       ctx.fillRect(400, 0, 400, 500);
 
-      // Garis Pemisah Petir
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
       ctx.lineWidth = 3;
       ctx.beginPath();
@@ -367,7 +411,6 @@
       ctx.lineTo(400, 500);
       ctx.stroke();
 
-      // Ambient Floating Particles
       ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
       particles.forEach(p => {
         p.y -= p.speed;
@@ -382,18 +425,15 @@
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 18px sans-serif';
 
-      // Status P1
       ctx.textAlign = 'left';
       ctx.fillText(`P1 (${attacker === 'p1' ? 'TAMPAR' : 'HINDAR'})`, 25, 35);
       ctx.fillText(`Poin: ${scoreP1}`, 25, 62);
 
-      // Status P2 / CPU
       ctx.textAlign = 'right';
       let p2Name = gameMode === 'vs_cpu' ? 'CPU' : 'P2';
       ctx.fillText(`${p2Name} (${attacker === 'p2' ? 'TAMPAR' : 'HINDAR'})`, 775, 35);
       ctx.fillText(`Poin: ${scoreP2}`, 775, 62);
 
-      // Status Tengah (Timer & Level)
       ctx.textAlign = 'center';
       ctx.font = 'bold 28px monospace';
       ctx.fillText(`00:${timeLeft < 10 ? '0' + timeLeft : timeLeft}`, 400, 40);
@@ -409,11 +449,9 @@
       renderBackground();
 
       if (gameActive) {
-        // Tangan Pemain 1 (Kiri)
         let p1X = p1State === 'slapping' ? 330 : (p1State === 'dodging' ? 210 : 260);
         drawHand(p1X, 280, true, p1State, p1Redness);
 
-        // Tangan Pemain 2 / CPU (Kanan)
         let p2X = p2State === 'slapping' ? 470 : (p2State === 'dodging' ? 590 : 540);
         drawHand(p2X, 280, false, p2State, p2Redness);
       }
