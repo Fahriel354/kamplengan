@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Game Tampar Tangan 2D - Dual Button Edition</title>
+  <title>Game Tampar Tangan 2D - Free Action Edition</title>
   <style>
     * {
       box-sizing: border-box;
@@ -54,7 +54,7 @@
       display: block;
     }
 
-    /* Side Control Area dengan 2 Tombol */
+    /* Side Control Area dengan 2 Tombol, SELALU AKTIF untuk kedua pemain */
     .side-control {
       width: 18vw;
       max-width: 140px;
@@ -84,8 +84,6 @@
       justify-content: center;
       text-align: center;
       letter-spacing: 1px;
-      transition: opacity 0.15s ease, filter 0.15s ease, transform 0.1s ease;
-      position: relative;
     }
 
     /* Tombol P1 (Kiri) */
@@ -99,33 +97,6 @@
     .btn-action:active {
       transform: scale(0.92);
       opacity: 0.8;
-    }
-
-    /* Tombol nonaktif saat bukan giliran perannya (attacker/defender) */
-    .btn-action.disabled {
-      opacity: 0.3;
-      filter: grayscale(70%);
-      cursor: not-allowed;
-      box-shadow: none;
-    }
-    .btn-action.disabled:active {
-      transform: none;
-    }
-
-    /* Badge kecil penanda peran aktif di atas tombol */
-    .btn-action.active-role::after {
-      content: "●";
-      position: absolute;
-      top: 6px;
-      right: 10px;
-      color: #ffee58;
-      font-size: 1.2rem;
-      text-shadow: 0 0 6px #ffee58;
-      animation: pulse-role 1s infinite;
-    }
-    @keyframes pulse-role {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
     }
 
     /* UI Overlay Menu */
@@ -195,7 +166,7 @@
 <body>
 
   <div id="game-wrapper">
-    <!-- Kontrol Kiri (P1): 2 Tombol Terpisah -->
+    <!-- Kontrol Kiri (P1): 2 Tombol, kapan saja bisa dipencet -->
     <div class="side-control">
       <button id="btnSlapP1" class="btn-action btn-slap-p1">✋<br>TAMPAR<br><small>(W)</small></button>
       <button id="btnDodgeP1" class="btn-action btn-dodge-p1">🛡️<br>HINDAR<br><small>(S)</small></button>
@@ -211,13 +182,12 @@
         <div class="controls-hint">
           <b>Pemain 1 (Kiri):</b> [W] Tampar | [S] Hindar<br>
           <b>Pemain 2 (Kanan):</b> [PANAH ATAS] Tampar | [PANAH BAWAH] Hindar<br><br>
-          ⚠️ Tombol yang meredup berarti bukan giliranmu untuk aksi itu.<br>
-          Titik kuning berkedip = tombol yang sedang bisa kamu pakai.
+          Kedua tombol bisa dipencet KAPAN SAJA — pilih sendiri mau nyerang duluan atau siaga bertahan.
         </div>
       </div>
     </div>
 
-    <!-- Kontrol Kanan (P2): 2 Tombol Terpisah -->
+    <!-- Kontrol Kanan (P2): 2 Tombol, kapan saja bisa dipencet -->
     <div id="p2ControlGroup" class="side-control">
       <button id="btnSlapP2" class="btn-action btn-slap-p2">✋<br>TAMPAR<br><small>(▲)</small></button>
       <button id="btnDodgeP2" class="btn-action btn-dodge-p2">🛡️<br>HINDAR<br><small>(▼)</small></button>
@@ -229,11 +199,6 @@
     const ctx = canvas.getContext('2d');
     const uiOverlay = document.getElementById('uiOverlay');
     const menuTitle = document.getElementById('menuTitle');
-
-    const btnSlapP1 = document.getElementById('btnSlapP1');
-    const btnDodgeP1 = document.getElementById('btnDodgeP1');
-    const btnSlapP2 = document.getElementById('btnSlapP2');
-    const btnDodgeP2 = document.getElementById('btnDodgeP2');
 
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx;
@@ -268,6 +233,14 @@
         gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
         osc.start(now);
         osc.stop(now + 0.1);
+      } else if (type === 'miss') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, now);
+        osc.frequency.exponentialRampToValueAtTime(900, now + 0.08);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+        osc.start(now);
+        osc.stop(now + 0.08);
       } else if (type === 'win') {
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(523.25, now);
@@ -288,12 +261,14 @@
     let timeLeft = 30;
     let timerInterval = null;
     let gameActive = false;
+    let cpuLoopTimeout = null;
 
-    let attacker = 'p1';
-    let isActionInProgress = false;
-
-    let p1State = 'idle'; 
-    let p2State = 'idle'; 
+    // Tidak ada lagi konsep giliran/attacker-defender.
+    // Setiap pemain independen: idle -> slapping / dodging -> idle
+    let p1State = 'idle';
+    let p2State = 'idle';
+    let p1Busy = false; // true selagi animasi tampar milik P1 berjalan (mencegah spam klik)
+    let p2Busy = false; // true selagi animasi tampar milik P2 berjalan
     let p1Redness = 0;
     let p2Redness = 0;
 
@@ -306,25 +281,6 @@
       speed: Math.random() * 0.6 + 0.2
     }));
 
-    // Perbarui tampilan tombol (aktif/nonaktif) sesuai peran & giliran saat ini
-    function updateButtonStates() {
-      const p1IsAttacker = attacker === 'p1';
-      const p2IsAttacker = attacker === 'p2';
-      const locked = !gameActive || isActionInProgress;
-
-      // P1
-      btnSlapP1.classList.toggle('disabled', locked || !p1IsAttacker);
-      btnDodgeP1.classList.toggle('disabled', locked || p1IsAttacker);
-      btnSlapP1.classList.toggle('active-role', !locked && p1IsAttacker);
-      btnDodgeP1.classList.toggle('active-role', !locked && !p1IsAttacker);
-
-      // P2
-      btnSlapP2.classList.toggle('disabled', locked || !p2IsAttacker);
-      btnDodgeP2.classList.toggle('disabled', locked || p2IsAttacker);
-      btnSlapP2.classList.toggle('active-role', !locked && p2IsAttacker);
-      btnDodgeP2.classList.toggle('active-role', !locked && !p2IsAttacker);
-    }
-
     function startGame(mode) {
       initAudio();
       if (document.documentElement.requestFullscreen) {
@@ -336,10 +292,10 @@
       scoreP2 = 0;
       level = 1;
       timeLeft = 30;
-      attacker = 'p1';
-      isActionInProgress = false;
       p1State = 'idle';
       p2State = 'idle';
+      p1Busy = false;
+      p2Busy = false;
       p1Redness = 0;
       p2Redness = 0;
       hitEffects = [];
@@ -349,8 +305,6 @@
 
       uiOverlay.classList.add('hidden');
 
-      updateButtonStates();
-
       clearInterval(timerInterval);
       timerInterval = setInterval(() => {
         if (timeLeft > 0) {
@@ -359,39 +313,55 @@
           endGame();
         }
       }, 1000);
+
+      clearTimeout(cpuLoopTimeout);
+      if (gameMode === 'vs_cpu') {
+        scheduleCpuAttack();
+      }
     }
 
     function endGame() {
       gameActive = false;
       clearInterval(timerInterval);
+      clearTimeout(cpuLoopTimeout);
       playSound('win');
-      
+
       let winner = scoreP1 > scoreP2 ? "PEMAIN 1 MENANG!" : (scoreP2 > scoreP1 ? (gameMode === 'vs_cpu' ? "CPU MENANG!" : "PEMAIN 2 MENANG!") : "SERI!");
       menuTitle.innerText = winner;
       uiOverlay.classList.remove('hidden');
-      updateButtonStates();
     }
 
     function createHitEffect(x, y) {
       hitEffects.push({ x, y, radius: 10, alpha: 1.0 });
     }
 
-    // Eksekusi Logika Berdasarkan Tombol Yang Ditekan
+    // CPU menyerang sendiri secara berkala, independen dari aksi pemain
+    function scheduleCpuAttack() {
+      if (!gameActive || gameMode !== 'vs_cpu') return;
+      let base = Math.max(1400 - level * 130, 450);
+      let delay = base + Math.random() * base * 0.6;
+      cpuLoopTimeout = setTimeout(() => {
+        if (gameActive && gameMode === 'vs_cpu') {
+          handleAction('p2', 'slap');
+        }
+        scheduleCpuAttack();
+      }, delay);
+    }
+
+    // Eksekusi Logika Berdasarkan Tombol Yang Ditekan - BEBAS, TIDAK ADA GILIRAN
     function handleAction(player, actionType) {
-      if (!gameActive || isActionInProgress) return;
+      if (!gameActive) return;
 
       if (actionType === 'slap') {
-        // Pemain menekan TAMPAR
-        if (player !== attacker) return; // Mengabaikan jika salah giliran (bukan attacker)
+        let busy = player === 'p1' ? p1Busy : p2Busy;
+        if (busy) return; // cegah spam klik selagi animasi tampar sendiri berjalan (super singkat)
 
-        isActionInProgress = true;
-        updateButtonStates();
-        if (attacker === 'p1') p1State = 'slapping';
-        else p2State = 'slapping';
+        if (player === 'p1') { p1Busy = true; p1State = 'slapping'; }
+        else { p2Busy = true; p2State = 'slapping'; }
 
-        // AI Refleks
-        if (gameMode === 'vs_cpu' && attacker === 'p1' && p2State === 'idle') {
-          let dodgeChance = Math.min(0.3 + (level * 0.12), 0.85);
+        // Refleks CPU: kalau P1 nampar dan mode vs CPU, CPU punya kesempatan menghindar reaktif
+        if (gameMode === 'vs_cpu' && player === 'p1' && p2State !== 'dodging') {
+          let dodgeChance = Math.min(0.25 + (level * 0.1), 0.8);
           if (Math.random() < dodgeChance) {
             p2State = 'dodging';
             playSound('dodge');
@@ -399,14 +369,16 @@
         }
 
         setTimeout(() => {
-          let defender = attacker === 'p1' ? 'p2' : 'p1';
-          let defenderState = defender === 'p1' ? p1State : p2State;
+          let target = player === 'p1' ? 'p2' : 'p1';
+          let targetState = target === 'p1' ? p1State : p2State;
 
-          if (defenderState === 'dodging') {
-            attacker = defender; // Defender berhasil menghindar! Tukar giliran
+          if (targetState === 'dodging') {
+            playSound('miss');
+            // dodge berhasil dipakai, konsumsi statenya
+            if (target === 'p1') p1State = 'idle'; else p2State = 'idle';
           } else {
             playSound('slap');
-            if (attacker === 'p1') {
+            if (player === 'p1') {
               scoreP1++;
               p2Redness = Math.min(p2Redness + 0.25, 1);
               createHitEffect(500, 250);
@@ -415,37 +387,27 @@
               scoreP2++;
               p1Redness = Math.min(p1Redness + 0.25, 1);
               createHitEffect(300, 250);
+              if (scoreP2 % 3 === 0) level++;
             }
           }
 
-          p1State = 'idle';
-          p2State = 'idle';
-          isActionInProgress = false;
-          updateButtonStates();
-
-          // AI Turn Attack
-          if (gameActive && gameMode === 'vs_cpu' && attacker === 'p2') {
-            let cpuAttackDelay = Math.max(550 - (level * 55), 180);
-            setTimeout(() => {
-              if (gameActive && attacker === 'p2' && !isActionInProgress) {
-                handleAction('p2', 'slap');
-              }
-            }, cpuAttackDelay);
-          }
+          if (player === 'p1') { p1State = 'idle'; p1Busy = false; }
+          else { p2State = 'idle'; p2Busy = false; }
         }, 180);
 
       } else if (actionType === 'dodge') {
-        // Pemain menekan HINDAR
-        if (player === attacker) return; // Menghindar hanya bisa dilakukan oleh defender
-
-        if (player === 'p1' && p1State === 'idle') {
-          p1State = 'dodging';
-          playSound('dodge');
-          setTimeout(() => { if (p1State === 'dodging') p1State = 'idle'; }, 350);
-        } else if (player === 'p2' && p2State === 'idle') {
-          p2State = 'dodging';
-          playSound('dodge');
-          setTimeout(() => { if (p2State === 'dodging') p2State = 'idle'; }, 350);
+        if (player === 'p1') {
+          if (p1State === 'idle') {
+            p1State = 'dodging';
+            playSound('dodge');
+            setTimeout(() => { if (p1State === 'dodging') p1State = 'idle'; }, 400);
+          }
+        } else {
+          if (p2State === 'idle') {
+            p2State = 'dodging';
+            playSound('dodge');
+            setTimeout(() => { if (p2State === 'dodging') p2State = 'idle'; }, 400);
+          }
         }
       }
     }
@@ -465,7 +427,7 @@
 
     // Keyboard Event Binding untuk PC
     window.addEventListener('keydown', (e) => {
-      if (!gameActive || isActionInProgress) return;
+      if (!gameActive) return;
       const key = e.key.toLowerCase();
       if (key === 'w') handleAction('p1', 'slap');
       if (key === 's') handleAction('p1', 'dodge');
@@ -628,17 +590,23 @@
       }
     }
 
+    function stateLabel(state) {
+      if (state === 'slapping') return 'MENAMPAR';
+      if (state === 'dodging') return 'BERTAHAN';
+      return 'SIAP';
+    }
+
     function renderUI() {
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 18px sans-serif';
 
       ctx.textAlign = 'left';
-      ctx.fillText(`P1 (${attacker === 'p1' ? 'PENYERANG' : 'DEFENDER'})`, 25, 35);
+      ctx.fillText(`P1 (${stateLabel(p1State)})`, 25, 35);
       ctx.fillText(`Poin: ${scoreP1}`, 25, 62);
 
       ctx.textAlign = 'right';
       let p2Name = gameMode === 'vs_cpu' ? 'CPU' : 'P2';
-      ctx.fillText(`${p2Name} (${attacker === 'p2' ? 'PENYERANG' : 'DEFENDER'})`, 775, 35);
+      ctx.fillText(`${p2Name} (${stateLabel(p2State)})`, 775, 35);
       ctx.fillText(`Poin: ${scoreP2}`, 775, 62);
 
       ctx.textAlign = 'center';
@@ -669,7 +637,6 @@
       requestAnimationFrame(gameLoop);
     }
 
-    updateButtonStates();
     gameLoop();
   </script>
 </body>
